@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import prisma from "../config/prisma";
 
 
-export const getUserProfile = async(req : Request, res : Response) => {
+const getUserProfile = async(req : Request, res : Response) => {
     try {
         const userId = (req as any).user.id;
 
@@ -41,7 +41,7 @@ export const getUserProfile = async(req : Request, res : Response) => {
 
 
 
-export const updateUserProfile = async (req : Request, res : Response) => {
+const updateUserProfile = async (req : Request, res : Response) => {
     try {
         const userId = (req as any).user.id;
         const {name, phone } = req.body;
@@ -95,3 +95,47 @@ export const updateUserProfile = async (req : Request, res : Response) => {
 };
 
 
+const createAddress = async (req: Request, res: Response)=> {
+  try {
+
+    const userId = (req as any).user.id;
+    const { street, city, state, zip, country } = req.body;
+
+
+    if (!street || !city || !state || !zip || !country) {
+      return res.status(400).json({
+        message: "all fields are required",
+      });
+    }
+
+    const address = await prisma.address.create({
+      data: {
+        userId,
+        street,
+        city,
+        state,
+        zip,
+        country,
+      },
+    });
+
+    res.status(201).json({
+      message: "address created successfully",
+      address,
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "internal server error",
+    });
+  }
+};
+
+
+
+export default {
+    getUserProfile,
+    updateUserProfile,
+    createAddress
+}

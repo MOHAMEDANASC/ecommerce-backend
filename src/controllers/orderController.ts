@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import prisma from "../config/prisma";
 
 
-export const createOrder = async (req: Request, res: Response) => {
+const createOrder = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
     const { addressId } = req.body;
@@ -37,6 +37,8 @@ export const createOrder = async (req: Request, res: Response) => {
       },
     });
 
+    console.log("CREATE ORDER HIT 1");
+
     if (!cart || cart.items.length === 0) {
       return res.status(400).json({
         message: "Cart is empty",
@@ -54,6 +56,8 @@ export const createOrder = async (req: Request, res: Response) => {
 
       total += item.product.price * item.quantity;
     }
+
+    console.log("CREATE ORDER HIT 2");
 
    
     const order = await prisma.$transaction(async (tx) => {
@@ -111,7 +115,7 @@ export const createOrder = async (req: Request, res: Response) => {
 };
 
 
-export const getUserOrders = async (req: Request, res: Response) => {
+const getUserOrders = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
 
@@ -142,7 +146,7 @@ export const getUserOrders = async (req: Request, res: Response) => {
 };
 
 
-export const getSingleOrder = async (req: Request, res: Response) => {
+const getSingleOrder = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
     const orderId = Number(req.params.id);
@@ -192,7 +196,7 @@ export const getSingleOrder = async (req: Request, res: Response) => {
 };
 
 
-export const cancelOrder = async (req: Request, res: Response) => {
+const cancelOrder = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
     const orderId = Number(req.params.id);
@@ -258,3 +262,12 @@ export const cancelOrder = async (req: Request, res: Response) => {
     });
   }
 };
+
+
+
+export default {
+  createOrder,
+  getUserOrders,
+  getSingleOrder,
+  cancelOrder
+}

@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import prisma from "../config/prisma";
 
 
-export const getAllUsers = async (req: Request, res: Response) => {
+const getAllUsers = async (req: Request, res: Response) => {
   try {
     const users = await prisma.user.findMany({
       select: {
@@ -29,7 +29,7 @@ export const getAllUsers = async (req: Request, res: Response) => {
 };
 
 
-export const getSingleUser = async (req: Request, res: Response) => {
+const getSingleUser = async (req: Request, res: Response) => {
   try {
     const userId = Number(req.params.id);
 
@@ -67,7 +67,7 @@ export const getSingleUser = async (req: Request, res: Response) => {
 };
 
 
-export const updateUser = async (req: Request, res: Response) => {
+const updateUser = async (req: Request, res: Response) => {
   try {
     const userId = Number(req.params.id);
     const { name, phone, role } = req.body;
@@ -112,7 +112,7 @@ export const updateUser = async (req: Request, res: Response) => {
 };
 
 
-export const deleteUser = async (req: Request, res: Response) => {
+const deleteUser = async (req: Request, res: Response) => {
   try {
     const userId = Number(req.params.id);
 
@@ -143,9 +143,8 @@ export const deleteUser = async (req: Request, res: Response) => {
 };
 
 
-export const getDashboardStats = async (req: Request, res: Response) => {
+const getDashboardStats = async (req: Request, res: Response) => {
   try {
-    // 🔥 Run queries in parallel (performance)
     const [
       totalUsers,
       totalProducts,
@@ -155,16 +154,12 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       orderStatusStats
     ] = await Promise.all([
 
-      // 1️⃣ Total users
       prisma.user.count(),
 
-      // 2️⃣ Total products
       prisma.product.count(),
 
-      // 3️⃣ Total orders
       prisma.order.count(),
 
-      // 4️⃣ Total revenue (only delivered orders)
       prisma.order.aggregate({
         _sum: {
           total: true,
@@ -174,7 +169,6 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         },
       }),
 
-      // 5️⃣ Recent orders (last 5)
       prisma.order.findMany({
         take: 5,
         orderBy: { createdAt: "desc" },
@@ -185,7 +179,6 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         },
       }),
 
-      // 6️⃣ Order status breakdown
       prisma.order.groupBy({
         by: ["status"],
         _count: {
@@ -216,3 +209,12 @@ export const getDashboardStats = async (req: Request, res: Response) => {
     });
   }
 };
+
+
+export default {
+  getAllUsers,
+  getSingleUser,
+  updateUser,
+  deleteUser,
+  getDashboardStats
+}

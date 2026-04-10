@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../config/prisma";
 
-export const createCategory = async (req: Request, res: Response) => {
+const createCategory = async (req: Request, res: Response) => {
   try {
     const { name } = req.body;
     if (!name || name.trim() === "") {
@@ -35,61 +35,7 @@ export const createCategory = async (req: Request, res: Response) => {
 };
 
 
-export const getAllCategories = async (req: Request, res: Response) => {
-  try {
-    const categories = await prisma.category.findMany();
-
-    res.status(200).json({
-      message: "Categories fetched successfully",
-      categories,
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      message: "Internal server error",
-    });
-  }
-};
-
-
-export const getSingleCategory = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-
-    const categoryId = Number(id);
-
-    if (isNaN(categoryId)) {
-      return res.status(400).json({
-        message: "Invalid category ID",
-      });
-    }
-    const category = await prisma.category.findUnique({
-      where: { id: categoryId },
-      include: {
-        Products: true, 
-      },
-    });
-
-    if (!category) {
-      return res.status(404).json({
-        message: "Category not found",
-      });
-    }
-
-    res.status(200).json({
-      message: "Category fetched successfully",
-      category,
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      message: "Internal server error",
-    });
-  }
-};
-
-
-export const updateCategory = async (req : Request, res : Response) => {
+const updateCategory = async (req : Request, res : Response) => {
   try {
     const { id } = req.params;
     const { name } = req.body;
@@ -123,6 +69,7 @@ export const updateCategory = async (req : Request, res : Response) => {
 
 
   } catch (error : any ){
+    console.error(error);
     res.status(500).json({
       message : "Internal server error",
     });
@@ -130,7 +77,7 @@ export const updateCategory = async (req : Request, res : Response) => {
 };
 
 
-export const deleteCategory = async (req : Request , res: Response) => {
+const deleteCategory = async (req : Request , res: Response) => {
   try {
     const { id } = req.params;
     const categoryId = Number(id);
@@ -161,8 +108,16 @@ export const deleteCategory = async (req : Request , res: Response) => {
     })
 
   } catch (error : any) {
+    console.error(error);
     res.status(500).json({
       message : "internal server error",
     });
   }
 };
+
+
+export default {
+  createCategory,
+  updateCategory,
+  deleteCategory
+}

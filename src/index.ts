@@ -1,39 +1,65 @@
 import express from "express";
 import prisma from "./config/prisma";
-import authRoutes from "./routes/auth.routes";
-import testRoutes from "./routes/test.routes";
-import productRoutes from "./routes/product.routes";
-import categoryRoutes from "./routes/category.routes";
-import cartRoutes from "./routes/cart.routes";
-import orderRoutes from "./routes/order.routes";
-import userRoutes from "./routes/user.routes";
-import adminRoutes from "./routes/admin.routes";
+import cookieParser from "cookie-parser";
 
+import authRoutes from "./routes/authRoutes";
+import productAdminRoutes from "./routes/productadminRoutes";
+import categoryAdminRoutes from "./routes/categoryadminRoutes";
+import cartRoutes from "./routes/cartRoutes";
+import orderRoutes from "./routes/orderRoutes";
+import userRoutes from "./routes/userRoutes";
+import adminRoutes from "./routes/adminRoutes";
+import productRoutes from "./routes/productRoutes";
+import categoryRoutes from "./routes/categoryRoutes";
+import orderAdminRoutes from "./routes/orderadminRoutes";
+import addressRoutes from "./routes/addressRoutes";
 
 const app = express();
 
 app.use(express.json());
+app.use(cookieParser());
+
+app.use((req, res, next) => {
+  console.log(`REQUEST: ${req.method} ${req.url}`);
+  next();
+});
 
 app.use("/api/auth", authRoutes);
-app.use("/api", testRoutes);
+app.use("/api/address", addressRoutes);
 app.use("/api/products", productRoutes);
-app.use("/api/category", categoryRoutes);
+app.use("/api/admin/products", productAdminRoutes);
+app.use("/api/categories", categoryRoutes);
+app.use("/api/admin/categories", categoryAdminRoutes);
 app.use("/api/cart", cartRoutes);
-app.use("/api/order",orderRoutes);
-app.use("/api/profile",userRoutes);
+app.use("/api/orders", orderRoutes);
+app.use("/api/admin/orders", orderAdminRoutes);
+app.use("/api/profile", userRoutes);
 app.use("/api/admin", adminRoutes);
 
 
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error(" GLOBAL ERROR:", err);
+
+  res.status(500).json({
+    message: err.message || "Internal server error",
+  });
+});
+
+
 async function testDB() {
-  const users = await prisma.user.findMany();
-  console.log(users);
-  
+  try {
+    const users = await prisma.user.findMany();
+    console.log(" DB Connected. Users count:", users.length);
+  } catch (error) {
+    console.error(" DB ERROR:", error);
+  }
 }
 
 testDB();
 
+
 const PORT = 5000;
 
 app.listen(PORT, () => {
-  console.log(`Server running on port http://localhost:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });

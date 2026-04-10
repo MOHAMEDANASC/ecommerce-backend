@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import prisma from "../config/prisma";
 
 
-export const getCart = async (req: Request, res: Response) => {
+const getCart = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
 
@@ -44,7 +44,7 @@ export const getCart = async (req: Request, res: Response) => {
 };
 
 
-export const addToCart = async (req: Request, res: Response) => {
+const addToCart = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
     const { productId, quantity } = req.body;
@@ -87,23 +87,6 @@ export const addToCart = async (req: Request, res: Response) => {
       },
     });
 
-    if (existingItem) {
-      await prisma.cartItem.update({
-        where: { id: existingItem.id },
-        data: {
-          quantity: existingItem.quantity + quantity,
-        },
-      });
-    } else {
-      await prisma.cartItem.create({
-        data: {
-          cartId : cart.id,
-          productId : Number(productId),
-          quantity,
-        },
-      });
-    }
-
     let cartItem;
 
     if (existingItem) {
@@ -136,7 +119,7 @@ export const addToCart = async (req: Request, res: Response) => {
   }
 };
 
-export const updateCartItemQuantity = async (req: Request, res: Response) => {
+const updateCartItemQuantity = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
     const { productId, quantity } = req.body;
@@ -211,7 +194,7 @@ export const updateCartItemQuantity = async (req: Request, res: Response) => {
 };
 
 
-export const removeCartItem = async (req : Request , res : Response) => {
+const removeCartItem = async (req : Request , res : Response) => {
   try {
     const userId = (req as any).user.id;
     const { productId } = req.body;
@@ -262,7 +245,7 @@ export const removeCartItem = async (req : Request , res : Response) => {
 }
 
 
-export const clearCart = async (req: Request, res: Response) => {
+const clearCart = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
 
@@ -301,3 +284,12 @@ export const clearCart = async (req: Request, res: Response) => {
     });
   }
 };
+
+
+export default {
+  getCart,
+  addToCart,
+  updateCartItemQuantity,
+  removeCartItem,
+  clearCart
+}
