@@ -8,7 +8,6 @@ const router =express.Router();
 
 router.get("/profile",authMiddleware, userController.getUserProfile);
 router.put("/profile",authMiddleware, userController.updateUserProfile);
-router.post("/address",authMiddleware, userController.createAddress);
 
 export default router
 

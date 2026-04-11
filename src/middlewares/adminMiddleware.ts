@@ -1,29 +1,24 @@
 import { Request, Response, NextFunction } from "express";
-import prisma from "../config/prisma";
 
-export const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
+export const isAdmin = (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userData = (req as any).user;
+    const user = (req as any).user;
 
-    if (!userData) {
+    if (!user) {
       return res.status(401).json({
-        message: "Unauthorized - user not found",
+        message: "Unauthorized",
       });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: userData.id },
-    });
-
-    if (!user || user.role !== "ADMIN") {
+    // 🔥 NEW CHECK (based on JWT)
+    if (user.type !== "ADMIN") {
       return res.status(403).json({
-        message: "Access denied. Admin only",
+        message: "Admins only",
       });
     }
 
     next();
-  } catch (error) {
-    console.log("error", error);
+  } catch {
     return res.status(500).json({
       message: "Server error",
     });

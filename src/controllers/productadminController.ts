@@ -4,24 +4,24 @@ import cloudinary from "../config/cloudinary";
 
 
 const createProduct = async (req: Request, res: Response) => {
-  const uploadedImages: { publicId: string }[] = [];
-
   try {
-    const user = (req as any).user;
-    console.log("user",user)
+    const admin = (req as any).user;
 
-    if (!user || !user.id) {
-      return res.status(401).json({ message: "Unauthorized" });
+    // ✅ Admin check
+    if (!admin || !admin.id || admin.type !== "ADMIN") {
+      return res.status(401).json({ message: "Unauthorized (Admin only)" });
     }
 
     const { name, price, description, stock, categoryId } = req.body;
 
+    // ✅ Validation
     if (!name || price == null || stock == null || !categoryId) {
       return res.status(400).json({
         message: "Required fields missing",
       });
     }
 
+    // ✅ Category check
     const category = await prisma.category.findUnique({
       where: { id: Number(categoryId) },
     });
@@ -32,8 +32,7 @@ const createProduct = async (req: Request, res: Response) => {
       });
     }
 
-    console.log("BODY:", req.body);
-    console.log("FILES:", req.files);
+    // ✅ Files
     const files = req.files as Express.Multer.File[];
 
     if (!files || files.length === 0) {
@@ -42,10 +41,7 @@ const createProduct = async (req: Request, res: Response) => {
       });
     }
 
-    files.forEach((file: any) => {
-      uploadedImages.push({ publicId: file.public_id || file.filename });
-    });
-
+    // ✅ Create product (FIXED)
     const product = await prisma.product.create({
       data: {
         name,
@@ -53,7 +49,9 @@ const createProduct = async (req: Request, res: Response) => {
         description,
         stock: Number(stock),
         categoryId: category.id,
-        userId: user.id,
+
+        // 🔥 FINAL FIX HERE
+        adminId: admin.id,
 
         images: {
           create: files.map((file: any) => {
@@ -63,7 +61,7 @@ const createProduct = async (req: Request, res: Response) => {
 
             return {
               url: file.path,
-              publicId: file.public_id || file.filename, 
+              publicId: file.public_id || file.filename,
             };
           }),
         },
@@ -78,15 +76,14 @@ const createProduct = async (req: Request, res: Response) => {
       product,
     });
 
-  }catch (error: any) {
-    console.log(" FULL ERROR:", JSON.stringify(error, null, 2));
+  } catch (error: any) {
+    console.log("FULL ERROR:", error);
 
     return res.status(500).json({
       message: error.message || "Something went wrong",
     });
   }
 };
-
 
 const updateProduct = async (req: Request, res: Response) => {
   try {

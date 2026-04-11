@@ -45,6 +45,10 @@ app.use((err: any, req: any, res: any, next: any) => {
   });
 });
 
+app.get("/", (req, res) => {
+  res.send("SERVER WORKING");
+});
+
 
 async function testDB() {
   try {
@@ -57,9 +61,10 @@ async function testDB() {
 
 testDB();
 
-
-const PORT = 5000;
+const PORT = 5050;
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
+setInterval(() => {}, 1000);
+

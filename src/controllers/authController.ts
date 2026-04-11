@@ -1,62 +1,125 @@
 import { Request, Response } from "express";
 import prisma from "../config/prisma";
 import bcrypt from "bcrypt";
-import crypto from "crypto";
-import { registerSchema } from "../validations/authValidation";
-import { loginSchema } from "../validations/authValidation";
+import { registerSchema, loginSchema } from "../validations/authValidation";
 import { ZodError } from "zod";
 import { sendOTPEmail } from "../utils/sendEmail";
 import jwt from "jsonwebtoken";
 
 
+const createAdmin = async (req: Request, res: Response) => {
+  try {
+    const { name, email, password } = req.body;
 
-const registerUser = async (req: Request, res: Response) => {
-    try {
-        const parsedData = registerSchema.parse(req.body);
-        const { name, email, password, phone } = parsedData;
+    const existingAdmin = await prisma.admin.findFirst();
 
-        const existingUser = await prisma.user.findUnique({
-            where: { email },
-        });
-
-        if (existingUser) {
-            return res.status(400).json({
-                message: "User already exists",
-            });
-        }
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        await prisma.user.create({
-            data: {
-                name,
-                email,
-                password: hashedPassword,
-                phone,
-            },
-        });
-
-        return res.status(201).json({
-            message: "User created successfully",
-        });
-
-    } catch (error: any) {
-       console.error(error);
-        if (error instanceof ZodError) {
-            return res.status(400).json({
-                message: "validation failed 1",
-                errors: error.issues,
-            });
-        }
-
-        return res.status(500).json({
-            message: "something went wrong",
-        });
+    if (existingAdmin) {
+      return res.status(400).json({
+        message: "Admin already exists",
+      });
     }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const admin = await prisma.admin.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+      },
+    });
+
+    return res.status(201).json({
+      message: "Admin created successfully",
+      admin,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Something went wrong" });
+  }
+};
+
+const adminLogin = async (req: Request, res: Response) => {
+  try {
+    const { email, password } = req.body;
+
+    const admin = await prisma.admin.findUnique({
+      where: { email },
+    });
+
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    const isMatch = await bcrypt.compare(password, admin.password);
+
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid password" });
+    }
+
+    const token = jwt.sign(
+      {
+        id: admin.id,
+        type: "ADMIN",   
+      },
+      process.env.JWT_SECRET!,
+      { expiresIn: "1d" }
+    );
+
+    return res.status(200).json({
+      message: "Admin login successful",
+      token,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Something went wrong" });
+  }
 };
 
 
-export const loginUser = async (req: Request, res: Response) => {
+
+const registerUser = async (req: Request, res: Response) => {
+  try {
+    const parsedData = registerSchema.parse(req.body);
+    const { name, email, password, phone } = parsedData;
+
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        message: "User already exists",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await prisma.user.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+        phone,
+      },
+    });
+
+    return res.status(201).json({
+      message: "User created successfully",
+    });
+  } catch (error: any) {
+    if (error instanceof ZodError) {
+      return res.status(400).json({
+        message: "Validation failed",
+        errors: error.issues,
+      });
+    }
+
+    return res.status(500).json({
+      message: "Something went wrong",
+    });
+  }
+};
+
+const loginUser = async (req: Request, res: Response) => {
   try {
     const parsedData = loginSchema.parse(req.body);
     const { email, password } = parsedData;
@@ -67,7 +130,7 @@ export const loginUser = async (req: Request, res: Response) => {
 
     if (!user) {
       return res.status(401).json({
-        message: "invalid email or password",
+        message: "Invalid email or password",
       });
     }
 
@@ -75,12 +138,12 @@ export const loginUser = async (req: Request, res: Response) => {
 
     if (!isMatch) {
       return res.status(401).json({
-        message: "invalid email or password",
+        message: "Invalid email or password",
       });
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
+    console.log("🔥 OTP:", otp);
     const otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
 
     await prisma.user.update({
@@ -92,26 +155,15 @@ export const loginUser = async (req: Request, res: Response) => {
       },
     });
 
-    try {
-      await sendOTPEmail(email, otp);
-    } catch (mailError) {
-      console.log("EMAIL ERROR:", mailError);
-
-      return res.status(500).json({
-        message: "Failed to send OTP email",
-      });
-    }
+    await sendOTPEmail(email, otp);
 
     return res.status(200).json({
       message: "OTP sent to your email",
     });
-
   } catch (error: any) {
-    console.log("ERROR:", error);
-
     if (error instanceof ZodError) {
       return res.status(400).json({
-        message: "validation failed 2",
+        message: "Validation failed",
         errors: error.issues,
       });
     }
@@ -122,7 +174,6 @@ export const loginUser = async (req: Request, res: Response) => {
   }
 };
 
-
 const verifyOTP = async (req: Request, res: Response) => {
   try {
     const { email, otp } = req.body;
@@ -132,15 +183,11 @@ const verifyOTP = async (req: Request, res: Response) => {
     });
 
     if (!user || user.otp !== otp) {
-      return res.status(400).json({
-        message: "Invalid OTP",
-      });
+      return res.status(400).json({ message: "Invalid OTP" });
     }
 
     if (!user.otpExpiry || user.otpExpiry < new Date()) {
-      return res.status(400).json({
-        message: "OTP expired",
-      });
+      return res.status(400).json({ message: "OTP expired" });
     }
 
     await prisma.user.update({
@@ -153,30 +200,25 @@ const verifyOTP = async (req: Request, res: Response) => {
     });
 
     const token = jwt.sign(
-      { id: user.id, role: user.role }, 
+      {
+        id: user.id,
+        type: "USER",  
+      },
       process.env.JWT_SECRET!,
-      { expiresIn: "1d" }
+      { expiresIn: "7d" }
     );
-
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: false, 
-      sameSite: "lax",
-      maxAge: 24 * 60 * 60 * 1000, 
-    });
 
     return res.status(200).json({
       message: "Login successful",
       token,
     });
-
   } catch (error) {
-    console.log(error);
     return res.status(500).json({
       message: "Something went wrong",
     });
   }
 };
+
 
 const logoutUser = async (req: Request, res: Response) => {
   try {
@@ -197,9 +239,7 @@ const logoutUser = async (req: Request, res: Response) => {
     return res.status(200).json({
       message: "Logged out successfully",
     });
-
-  } catch (error) {
-    console.error(error);
+  } catch {
     return res.status(500).json({
       message: "Something went wrong",
     });
@@ -207,15 +247,10 @@ const logoutUser = async (req: Request, res: Response) => {
 };
 
 
+
 const forgotPassword = async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
-
-    if (!email) {
-      return res.status(400).json({
-        message: "Email is required",
-      });
-    }
 
     const user = await prisma.user.findUnique({
       where: { email },
@@ -223,12 +258,12 @@ const forgotPassword = async (req: Request, res: Response) => {
 
     if (!user) {
       return res.status(200).json({
-        message: "If this email exists, an OTP has been sent",
+        message: "If email exists, OTP sent",
       });
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
+    console.log("🔥 FORGOT OTP:", otp);
     const expiry = new Date(Date.now() + 5 * 60 * 1000);
 
     await prisma.user.update({
@@ -242,44 +277,9 @@ const forgotPassword = async (req: Request, res: Response) => {
     await sendOTPEmail(email, otp);
 
     return res.status(200).json({
-      message: "OTP sent to email",
+      message: "OTP sent",
     });
-
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({
-      message: "Internal server error",
-    });
-  }
-};
-
-const verifyForgotOTP = async (req: Request, res: Response) => {
-  try {
-    const { email, otp } = req.body;
-
-  
-    const user = await prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (!user || user.forgotOtp !== otp) {
-      return res.status(400).json({
-        message: "Invalid OTP",
-      });
-    }
-
-    if (!user.forgotOtpExpiry || user.forgotOtpExpiry < new Date()) {
-      return res.status(400).json({
-        message: "OTP expired",
-      });
-    }
-
-    return res.status(200).json({
-      message: "OTP verified",
-    });
-
-  } catch (error) {
-    console.error(error);
+  } catch {
     return res.status(500).json({
       message: "Something went wrong",
     });
@@ -287,6 +287,31 @@ const verifyForgotOTP = async (req: Request, res: Response) => {
 };
 
 
+const verifyForgotOTP = async (req: Request, res: Response) => {
+  try {
+    const { email, otp } = req.body;
+
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user || user.forgotOtp !== otp) {
+      return res.status(400).json({ message: "Invalid OTP" });
+    }
+
+    if (!user.forgotOtpExpiry || user.forgotOtpExpiry < new Date()) {
+      return res.status(400).json({ message: "OTP expired" });
+    }
+
+    return res.status(200).json({
+      message: "OTP verified",
+    });
+  } catch {
+    return res.status(500).json({
+      message: "Something went wrong",
+    });
+  }
+};
 
 const resetPassword = async (req: Request, res: Response) => {
   try {
@@ -306,22 +331,21 @@ const resetPassword = async (req: Request, res: Response) => {
     return res.status(200).json({
       message: "Password reset successful",
     });
-
-  } catch (error) {
-    console.error(error);
+  } catch {
     return res.status(500).json({
       message: "Something went wrong",
     });
   }
 };
 
-
 export default {
+  createAdmin,
+  adminLogin,
   registerUser,
   loginUser,
   verifyOTP,
   logoutUser,
   forgotPassword,
   verifyForgotOTP,
-  resetPassword
-}
+  resetPassword,
+};

@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import prisma from "../config/prisma";
 
-
 const getAllUsers = async (req: Request, res: Response) => {
   try {
     const users = await prisma.user.findMany({
@@ -10,7 +9,6 @@ const getAllUsers = async (req: Request, res: Response) => {
         name: true,
         email: true,
         phone: true,
-        role: true,
         createdAt: true,
       },
     });
@@ -21,13 +19,9 @@ const getAllUsers = async (req: Request, res: Response) => {
     });
 
   } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      message: "Internal server error",
-    });
+    res.status(500).json({ message: "Internal server error" });
   }
 };
-
 
 const getSingleUser = async (req: Request, res: Response) => {
   try {
@@ -40,7 +34,6 @@ const getSingleUser = async (req: Request, res: Response) => {
         name: true,
         email: true,
         phone: true,
-        role: true,
         createdAt: true,
         addresses: true,
         orders: true,
@@ -48,9 +41,7 @@ const getSingleUser = async (req: Request, res: Response) => {
     });
 
     if (!user) {
-      return res.status(404).json({
-        message: "User not found",
-      });
+      return res.status(404).json({ message: "User not found" });
     }
 
     res.status(200).json({
@@ -58,28 +49,22 @@ const getSingleUser = async (req: Request, res: Response) => {
       user,
     });
 
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      message: "Internal server error",
-    });
+  } catch {
+    res.status(500).json({ message: "Internal server error" });
   }
 };
-
 
 const updateUser = async (req: Request, res: Response) => {
   try {
     const userId = Number(req.params.id);
-    const { name, phone, role } = req.body;
+    const { name, phone } = req.body;
 
     const existingUser = await prisma.user.findUnique({
       where: { id: userId },
     });
 
     if (!existingUser) {
-      return res.status(404).json({
-        message: "User not found",
-      });
+      return res.status(404).json({ message: "User not found" });
     }
 
     const updatedUser = await prisma.user.update({
@@ -87,14 +72,6 @@ const updateUser = async (req: Request, res: Response) => {
       data: {
         ...(name && { name }),
         ...(phone && { phone }),
-        ...(role && { role }),
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
       },
     });
 
@@ -103,28 +80,14 @@ const updateUser = async (req: Request, res: Response) => {
       user: updatedUser,
     });
 
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      message: "Internal server error",
-    });
+  } catch {
+    res.status(500).json({ message: "Internal server error" });
   }
 };
-
 
 const deleteUser = async (req: Request, res: Response) => {
   try {
     const userId = Number(req.params.id);
-
-    const existingUser = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!existingUser) {
-      return res.status(404).json({
-        message: "User not found",
-      });
-    }
 
     await prisma.user.delete({
       where: { id: userId },
@@ -134,14 +97,10 @@ const deleteUser = async (req: Request, res: Response) => {
       message: "User deleted successfully",
     });
 
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      message: "Internal server error",
-    });
+  } catch {
+    res.status(500).json({ message: "Internal server error" });
   }
 };
-
 
 const getDashboardStats = async (req: Request, res: Response) => {
   try {
@@ -155,61 +114,45 @@ const getDashboardStats = async (req: Request, res: Response) => {
     ] = await Promise.all([
 
       prisma.user.count(),
-
       prisma.product.count(),
-
       prisma.order.count(),
 
       prisma.order.aggregate({
-        _sum: {
-          total: true,
-        },
-        where: {
-          status: "DELIVERED",
-        },
+        _sum: { total: true },
+        where: { status: "DELIVERED" },
       }),
 
       prisma.order.findMany({
         take: 5,
         orderBy: { createdAt: "desc" },
         include: {
-          user: {
-            select: { id: true, name: true },
-          },
+          user: { select: { id: true, name: true } },
         },
       }),
 
       prisma.order.groupBy({
         by: ["status"],
-        _count: {
-          status: true,
-        },
+        _count: { status: true },
       }),
     ]);
 
     res.status(200).json({
-      message: "Dashboard data fetched successfully",
-
       stats: {
         totalUsers,
         totalProducts,
         totalOrders,
         totalRevenue: revenueData._sum.total || 0,
       },
-
       recentOrders,
-
       orderStatusStats,
     });
 
-  } catch (error) {
-    console.error("DASHBOARD ERROR:", error);
+  } catch {
     res.status(500).json({
       message: "Failed to fetch dashboard data",
     });
   }
 };
-
 
 export default {
   getAllUsers,
@@ -217,4 +160,4 @@ export default {
   updateUser,
   deleteUser,
   getDashboardStats
-}
+};

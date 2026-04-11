@@ -33,7 +33,7 @@ const getSingleCategory = async (req: Request, res: Response) => {
     const category = await prisma.category.findUnique({
       where: { id: categoryId },
       include: {
-        Products: true, 
+        products: true,
       },
     });
 

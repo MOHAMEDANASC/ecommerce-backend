@@ -10,7 +10,9 @@ router.post("/register",validate(registerSchema),authController.registerUser);
 router.post("/login",validate(loginSchema),authController.loginUser);
 router.post("/verify-otp", authController.verifyOTP);
 router.post("/verify-forgot-otp",authController.verifyForgotOTP);
-router.post("/reset-passowrd",authController.resetPassword);
+router.post("/reset-password",authController.resetPassword);
+router.post("/forgot-password", authController.forgotPassword);
 upload.single("images");
+
 
 export default router

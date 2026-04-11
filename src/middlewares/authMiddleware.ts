@@ -5,7 +5,7 @@ import prisma from "../config/prisma";
 interface AuthRequest extends Request {
   user?: {
     id: number;
-    role?: string;
+    type: "ADMIN" | "USER";
   };
 }
 
@@ -19,14 +19,15 @@ export const authMiddleware = async (
 
     const authHeader = req.headers.authorization;
 
+    // ✅ Bearer token
     if (authHeader && authHeader.startsWith("Bearer ")) {
       const parts = authHeader.split(" ");
-
       if (parts.length === 2 && parts[1]) {
         token = parts[1];
       }
     }
 
+    // ✅ Cookie fallback
     if (!token && req.cookies?.token) {
       token = req.cookies.token;
     }
@@ -37,6 +38,7 @@ export const authMiddleware = async (
       });
     }
 
+    // ✅ Check blacklist
     const blacklisted = await prisma.blacklistedToken.findUnique({
       where: { token },
     });
@@ -47,14 +49,41 @@ export const authMiddleware = async (
       });
     }
 
+    // ✅ Verify token
     const decoded = jwt.verify(
       token,
       process.env.JWT_SECRET as string
-    ) as { id: number; role?: string };
+    ) as { id: number; type: "ADMIN" | "USER" };
 
+    if (decoded.type === "ADMIN") {
+      const admin = await prisma.admin.findUnique({
+        where: { id: decoded.id },
+      });
+
+      if (!admin) {
+        return res.status(401).json({
+          message: "Admin not found",
+        });
+      }
+    }
+
+    if (decoded.type === "USER") {
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.id },
+      });
+
+      if (!user) {
+        return res.status(401).json({
+          message: "User not found",
+        });
+      }
+    }
+
+    // ✅ Attach to request
     req.user = decoded;
 
     next();
+
   } catch (error) {
     if (error instanceof TokenExpiredError) {
       return res.status(401).json({
