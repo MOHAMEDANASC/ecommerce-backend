@@ -4,8 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon src/index.ts"
+    "dev": "nodemon src/index.ts",
+    "create-admin": "ts-node src/script.ts"
   },
+  
   "keywords": [],
   "author": "",
   "license": "ISC",

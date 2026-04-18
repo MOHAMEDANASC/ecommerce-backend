@@ -1,13 +1,13 @@
 import { Router } from "express";
 
 import orderController from "../controllers/orderController";
-import { authMiddleware } from "../middlewares/authMiddleware";
+import { userAuthMiddleware } from "../middlewares/userAuthMiddleware";
 
 const router = Router();
 
-router.post("/", authMiddleware, orderController.createOrder);
-router.get("/",authMiddleware, orderController.getUserOrders);
-router.get("/:id",authMiddleware, orderController.getSingleOrder);
-router.patch("/:id/cancel",authMiddleware, orderController.cancelOrder);
+router.post("/", userAuthMiddleware, orderController.createOrder);
+router.get("/",userAuthMiddleware, orderController.getUserOrders);
+router.get("/:id",userAuthMiddleware, orderController.getSingleOrder);
+router.patch("/:id/cancel",userAuthMiddleware, orderController.cancelOrder);
 
 export default router;

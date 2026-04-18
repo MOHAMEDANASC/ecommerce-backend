@@ -1,13 +1,12 @@
 import { Router } from "express";
 import deleteCategory from "../controllers/categoryadminController";
-import { authMiddleware } from "../middlewares/authMiddleware";
-import { isAdmin } from "../middlewares/adminMiddleware";
+import { adminAuthMiddleware,allowRoles } from "../middlewares/adminAuthMiddleware";
 
 const router = Router();
 
 
-router.post("/",authMiddleware, isAdmin, deleteCategory.createCategory);
-router.put("/:id",authMiddleware, isAdmin, deleteCategory.updateCategory);
-router.delete("/:id",authMiddleware, isAdmin, deleteCategory.deleteCategory);
+router.post("/",adminAuthMiddleware, allowRoles("SUPER_ADMIN", "ADMIN"), deleteCategory.createCategory);
+router.put("/:id",adminAuthMiddleware, allowRoles("SUPER_ADMIN", "ADMIN"), deleteCategory.updateCategory);
+router.delete("/:id",adminAuthMiddleware, allowRoles("SUPER_ADMIN"), deleteCategory.deleteCategory);
 
 export default router;

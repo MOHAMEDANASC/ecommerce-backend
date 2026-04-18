@@ -59,7 +59,8 @@ const adminLogin = async (req: Request, res: Response) => {
     const token = jwt.sign(
       {
         id: admin.id,
-        type: "ADMIN",   
+        role: admin.role,
+        type: "ADMIN", 
       },
       process.env.JWT_SECRET!,
       { expiresIn: "1d" }
@@ -70,7 +71,7 @@ const adminLogin = async (req: Request, res: Response) => {
       token,
     });
   } catch (error) {
-    return res.status(500).json({ message: "Something went wrong" });
+    return res.status(500).json({ message: "Something went wrong " });
   }
 };
 
@@ -142,16 +143,22 @@ const loginUser = async (req: Request, res: Response) => {
       });
     }
 
+    // ✅ Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    console.log("🔥 OTP:", otp);
-    const otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
+    console.log(" OTP:", otp);
 
-    await prisma.user.update({
-      where: { email },
+    await prisma.otp.deleteMany({
+      where: {
+        userId: user.id,
+      },
+    });
+
+
+    await prisma.otp.create({
       data: {
-        otp,
-        otpExpiry,
-        otpVerified: false,
+        userId: user.id,
+        code: otp,
+        isUsed: false,  
       },
     });
 
@@ -160,7 +167,10 @@ const loginUser = async (req: Request, res: Response) => {
     return res.status(200).json({
       message: "OTP sent to your email",
     });
-  } catch (error: any) {
+
+  }catch (error: any) {
+    console.error("🔥 ERROR:", error); 
+
     if (error instanceof ZodError) {
       return res.status(400).json({
         message: "Validation failed",
@@ -178,44 +188,42 @@ const verifyOTP = async (req: Request, res: Response) => {
   try {
     const { email, otp } = req.body;
 
-    const user = await prisma.user.findUnique({
-      where: { email },
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return res.status(400).json({ message: "User not found" });
+
+    const otpRecord = await prisma.otp.findFirst({
+      where: {
+        userId: user.id,
+        code: otp,
+        isUsed: false,   
+      },
+      orderBy: {
+        createdAt: "desc", 
+      },
     });
 
-    if (!user || user.otp !== otp) {
-      return res.status(400).json({ message: "Invalid OTP" });
+    if (!otpRecord) {
+      return res.status(400).json({ message: "Invalid or expired OTP" });
     }
 
-    if (!user.otpExpiry || user.otpExpiry < new Date()) {
-      return res.status(400).json({ message: "OTP expired" });
-    }
-
-    await prisma.user.update({
-      where: { email },
+    // Mark OTP as used
+    await prisma.otp.update({
+      where: { id: otpRecord.id },
       data: {
-        otp: null,
-        otpExpiry: null,
-        otpVerified: true,
+        isUsed: true,   
       },
     });
 
     const token = jwt.sign(
-      {
-        id: user.id,
-        type: "USER",  
-      },
+      { id: user.id, type: "USER" },
       process.env.JWT_SECRET!,
       { expiresIn: "7d" }
     );
 
-    return res.status(200).json({
-      message: "Login successful",
-      token,
-    });
+    return res.status(200).json({ message: "Login successful", token });
   } catch (error) {
-    return res.status(500).json({
-      message: "Something went wrong",
-    });
+    console.error(error);
+    return res.status(500).json({ message: "Something went wrong" });
   }
 };
 
@@ -263,7 +271,7 @@ const forgotPassword = async (req: Request, res: Response) => {
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    console.log("🔥 FORGOT OTP:", otp);
+    console.log(" FORGOT OTP:", otp);
     const expiry = new Date(Date.now() + 5 * 60 * 1000);
 
     await prisma.user.update({
@@ -287,56 +295,63 @@ const forgotPassword = async (req: Request, res: Response) => {
 };
 
 
-const verifyForgotOTP = async (req: Request, res: Response) => {
+const resetPassword = async (req: Request, res: Response) => {
   try {
-    const { email, otp } = req.body;
+    const { email, otp, newPassword } = req.body;
+
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ message: "Email, OTP and new password are required" });
+    }
 
     const user = await prisma.user.findUnique({
       where: { email },
     });
 
-    if (!user || user.forgotOtp !== otp) {
-      return res.status(400).json({ message: "Invalid OTP" });
+    if (!user) {
+      return res.status(400).json({ message: "User not found" });
     }
 
-    if (!user.forgotOtpExpiry || user.forgotOtpExpiry < new Date()) {
-      return res.status(400).json({ message: "OTP expired" });
+    // Find valid OTP
+    const otpRecord = await prisma.otp.findFirst({
+      where: {
+        userId: user.id,
+        code: otp,
+        type: "FORGOT_PASSWORD",
+        expiresAt: {
+          gt: new Date(),   // not expired
+        },
+      },
+    });
+
+    if (!otpRecord) {
+      return res.status(400).json({ message: "Invalid or expired OTP" });
     }
-
-    return res.status(200).json({
-      message: "OTP verified",
-    });
-  } catch {
-    return res.status(500).json({
-      message: "Something went wrong",
-    });
-  }
-};
-
-const resetPassword = async (req: Request, res: Response) => {
-  try {
-    const { email, newPassword } = req.body;
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    await prisma.user.update({
-      where: { email },
-      data: {
-        password: hashedPassword,
-        forgotOtp: null,
-        forgotOtpExpiry: null,
-      },
-    });
+    // Reset password and mark OTP as used
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: user.id },
+        data: { password: hashedPassword },
+      }),
+      prisma.otp.update({
+        where: { id: otpRecord.id },
+        data: {
+          isUsed: true, 
+        },
+      }),
+    ]);
 
     return res.status(200).json({
       message: "Password reset successful",
     });
-  } catch {
-    return res.status(500).json({
-      message: "Something went wrong",
-    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Something went wrong" });
   }
 };
+
 
 export default {
   createAdmin,
@@ -346,6 +361,12 @@ export default {
   verifyOTP,
   logoutUser,
   forgotPassword,
-  verifyForgotOTP,
   resetPassword,
 };
+
+
+
+
+
+
+

@@ -15,19 +15,31 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  SALES_MANAGER
+}
+
 model BlacklistedToken {
   id        Int      @id @default(autoincrement())
   token     String   @unique
   createdAt DateTime @default(now())
 }
 
+
 model Admin {
   id        Int      @id @default(autoincrement())
   name      String
   email     String   @unique
   password  String
-  createdAt DateTime @default(now())
 
+  role      AdminRole @default(SUPER_ADMIN)
+
+  isActive  Boolean   @default(true)
+
+  createdAt DateTime @default(now())
   products  Product[]
 }
 
@@ -41,12 +53,6 @@ model User {
   cart             Cart?
   orders           Order[]
   addresses        Address[]
-
-  otp              String?
-  otpExpiry        DateTime?
-  otpVerified      Boolean     @default(false)
-  forgotOtp        String?
-  forgotOtpExpiry  DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -157,4 +163,13 @@ model Address {
   isDefault Boolean @default(false)
 
   orders Order[]
+}
+
+model otp {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  code        String
+  isUsed      Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }

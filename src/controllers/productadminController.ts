@@ -7,21 +7,26 @@ const createProduct = async (req: Request, res: Response) => {
   try {
     const admin = (req as any).user;
 
-    // ✅ Admin check
+    // Admin check
     if (!admin || !admin.id || admin.type !== "ADMIN") {
       return res.status(401).json({ message: "Unauthorized (Admin only)" });
     }
 
     const { name, price, description, stock, categoryId } = req.body;
 
-    // ✅ Validation
+    // Validation
     if (!name || price == null || stock == null || !categoryId) {
       return res.status(400).json({
         message: "Required fields missing",
       });
     }
 
-    // ✅ Category check
+    // price checking
+    if (isNaN(price) || Number(price) <= 0) {
+      return res.status(400).json({ message: "Invalid price" });
+    }
+
+    // Category check
     const category = await prisma.category.findUnique({
       where: { id: Number(categoryId) },
     });
@@ -32,7 +37,7 @@ const createProduct = async (req: Request, res: Response) => {
       });
     }
 
-    // ✅ Files
+    // Files
     const files = req.files as Express.Multer.File[];
 
     if (!files || files.length === 0) {
@@ -50,7 +55,6 @@ const createProduct = async (req: Request, res: Response) => {
         stock: Number(stock),
         categoryId: category.id,
 
-        // 🔥 FINAL FIX HERE
         adminId: admin.id,
 
         images: {

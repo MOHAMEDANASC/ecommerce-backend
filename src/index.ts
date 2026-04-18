@@ -1,13 +1,11 @@
 import express from "express";
 import prisma from "./config/prisma";
 import cookieParser from "cookie-parser";
-
 import authRoutes from "./routes/authRoutes";
 import productAdminRoutes from "./routes/productadminRoutes";
 import categoryAdminRoutes from "./routes/categoryadminRoutes";
 import cartRoutes from "./routes/cartRoutes";
 import orderRoutes from "./routes/orderRoutes";
-import userRoutes from "./routes/userRoutes";
 import adminRoutes from "./routes/adminRoutes";
 import productRoutes from "./routes/productRoutes";
 import categoryRoutes from "./routes/categoryRoutes";
@@ -33,7 +31,6 @@ app.use("/api/admin/categories", categoryAdminRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/admin/orders", orderAdminRoutes);
-app.use("/api/profile", userRoutes);
 app.use("/api/admin", adminRoutes);
 
 

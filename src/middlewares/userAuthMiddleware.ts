@@ -5,11 +5,11 @@ import prisma from "../config/prisma";
 interface AuthRequest extends Request {
   user?: {
     id: number;
-    type: "ADMIN" | "USER";
+    type: "USER";
   };
 }
 
-export const authMiddleware = async (
+export const userAuthMiddleware = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction
@@ -19,26 +19,22 @@ export const authMiddleware = async (
 
     const authHeader = req.headers.authorization;
 
-    // ✅ Bearer token
     if (authHeader && authHeader.startsWith("Bearer ")) {
       const parts = authHeader.split(" ");
-      if (parts.length === 2 && parts[1]) {
+      if (parts.length === 2) {
         token = parts[1];
       }
     }
 
-    // ✅ Cookie fallback
     if (!token && req.cookies?.token) {
       token = req.cookies.token;
     }
 
     if (!token) {
-      return res.status(401).json({
-        message: "No token provided",
-      });
+      return res.status(401).json({ message: "No token provided" });
     }
 
-    // ✅ Check blacklist
+    // ✅ Blacklist check
     const blacklisted = await prisma.blacklistedToken.findUnique({
       where: { token },
     });
@@ -49,56 +45,43 @@ export const authMiddleware = async (
       });
     }
 
-    // ✅ Verify token
+    // ✅ Verify JWT
     const decoded = jwt.verify(
       token,
       process.env.JWT_SECRET as string
-    ) as { id: number; type: "ADMIN" | "USER" };
+    ) as { id: number; type: "USER" };
 
-    if (decoded.type === "ADMIN") {
-      const admin = await prisma.admin.findUnique({
-        where: { id: decoded.id },
+    // ❗ CRITICAL: enforce USER only
+    if (decoded.type !== "USER") {
+      return res.status(403).json({
+        message: "User access only",
       });
-
-      if (!admin) {
-        return res.status(401).json({
-          message: "Admin not found",
-        });
-      }
     }
 
-    if (decoded.type === "USER") {
-      const user = await prisma.user.findUnique({
-        where: { id: decoded.id },
-      });
+    // ✅ Check user exists
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+    });
 
-      if (!user) {
-        return res.status(401).json({
-          message: "User not found",
-        });
-      }
+    if (!user) {
+      return res.status(401).json({
+        message: "User not found",
+      });
     }
 
-    // ✅ Attach to request
     req.user = decoded;
 
     next();
 
   } catch (error) {
     if (error instanceof TokenExpiredError) {
-      return res.status(401).json({
-        message: "Token expired",
-      });
+      return res.status(401).json({ message: "Token expired" });
     }
 
     if (error instanceof JsonWebTokenError) {
-      return res.status(401).json({
-        message: "Invalid token",
-      });
+      return res.status(401).json({ message: "Invalid token" });
     }
 
-    return res.status(500).json({
-      message: "Internal server error",
-    });
+    return res.status(500).json({ message: "Internal server error" });
   }
 };

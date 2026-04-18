@@ -1,34 +1,47 @@
 import express from "express";
 import adminController from "../controllers/adminController";
 import authController from "../controllers/authController";
-import { authMiddleware } from "../middlewares/authMiddleware";
-import { isAdmin } from "../middlewares/adminMiddleware";
+import { adminAuthMiddleware, allowRoles } from "../middlewares/adminAuthMiddleware";
 
 const router = express.Router();
 
-
-router.post("/create", (req, res, next) => {
-  console.log("➡️ HIT: POST /api/admin/create");
-  next();
-}, authController.createAdmin);
-
-router.post("/login", (req, res, next) => {
-  console.log("➡️ HIT: POST /api/admin/login");
-  next();
-}, authController.adminLogin);
+// Public Route
+router.post("/login", authController.adminLogin);
 
 
+router.get(
+  "/users",
+  adminAuthMiddleware,
+  allowRoles("SUPER_ADMIN"),
+  adminController.getAllUsers
+);
 
+router.get(
+  "/users/:id",
+  adminAuthMiddleware,
+  allowRoles("SUPER_ADMIN"),
+  adminController.getSingleUser
+);
 
-router.get("/users", authMiddleware, isAdmin, adminController.getAllUsers);
+router.put(
+  "/users/:id",
+  adminAuthMiddleware,
+  allowRoles("SUPER_ADMIN"),
+  adminController.updateUser
+);
 
-router.get("/users/:id", authMiddleware, isAdmin, adminController.getSingleUser);
+router.delete(
+  "/users/:id",
+  adminAuthMiddleware,
+  allowRoles("SUPER_ADMIN"),
+  adminController.deleteUser
+);
 
-router.put("/users/:id", authMiddleware, isAdmin, adminController.updateUser);
-
-router.delete("/users/:id", authMiddleware, isAdmin, adminController.deleteUser);
-
-router.get("/dashboard", authMiddleware, isAdmin, adminController.getDashboardStats);
-
+router.get(
+  "/dashboard",
+  adminAuthMiddleware,
+  allowRoles("SUPER_ADMIN", "ADMIN", "MANAGER", "SALES_MANAGER"),
+  adminController.getDashboardStats
+);
 
 export default router;

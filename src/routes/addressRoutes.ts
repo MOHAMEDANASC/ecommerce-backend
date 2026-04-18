@@ -1,13 +1,16 @@
 import { Router } from "express";
-console.log("ADDRESS ROUTES LOADED");
 
 import addressController from "../controllers/addressController";
-import { authMiddleware } from "../middlewares/authMiddleware";
+import { userAuthMiddleware } from "../middlewares/userAuthMiddleware";
+import { validate } from "../middlewares/validateMiddleware";
+import { addressSchema } from "../validations/addressValidator";
+
 
 const router = Router();
 
-router.post("/",authMiddleware, addressController.addAddress);
-router.get("/", authMiddleware, addressController.getAllAddress);
-router.put("/:id", authMiddleware, addressController.updateAddress);
+router.post("/",userAuthMiddleware, validate(addressSchema), addressController.addAddress);
+router.put("/:id", userAuthMiddleware, validate(addressSchema), addressController.updateAddress);
+router.get("/", userAuthMiddleware,  addressController.getAllAddress);
+
 
 export default router;
