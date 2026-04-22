@@ -7,6 +7,7 @@ import { adminAuthMiddleware, allowRoles } from "../middlewares/adminAuthMiddlew
 
 const router = Router();
 
-router.put("/admin/orders/:id/status", adminAuthMiddleware, allowRoles("SALES_MANAGER"), orderadminController.updateOrderStatus);
+router.put("/:id/status",adminAuthMiddleware,allowRoles("SUPER_ADMIN","SALES_MANAGER"),orderadminController.updateOrderStatus);
+
 
 export default router;

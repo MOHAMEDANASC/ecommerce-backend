@@ -5,13 +5,18 @@ import prisma from "../config/prisma";
 const createOrder = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
-    const { addressId, productId, quantity = 1 } = req.body; // Added productId & quantity
+    const { addressId, productId, quantity = 1, items } = req.body;
 
     if (!addressId) {
       return res.status(400).json({ message: "Address is required" });
     }
 
-    // Validate address belongs to user
+    if (productId && items) {
+      return res.status(400).json({
+        message: "Use either productId or items, not both",
+      });
+    }
+
     const address = await prisma.address.findFirst({
       where: { id: addressId, userId },
     });
@@ -23,12 +28,8 @@ const createOrder = async (req: Request, res: Response) => {
     let orderItems: any[] = [];
     let total = 0;
 
-    // Case 1: Direct Buy (Single Product - Buy Now)
+    // ✅ 1. BUY NOW
     if (productId) {
-      if (!quantity || quantity < 1) {
-        return res.status(400).json({ message: "Valid quantity is required" });
-      }
-
       const product = await prisma.product.findUnique({
         where: { id: productId },
       });
@@ -39,28 +40,56 @@ const createOrder = async (req: Request, res: Response) => {
 
       if (product.stock < quantity) {
         return res.status(400).json({
-          message: `Not enough stock for ${product.name}. Only ${product.stock} left.`,
+          message: `Not enough stock for ${product.name}`,
         });
       }
 
-      orderItems = [
-        {
-          productId: product.id,
-          quantity: Number(quantity),
-          price: product.price,
-        },
-      ];
+      orderItems.push({
+        productId: product.id,
+        quantity,
+        price: product.price,
+      });
 
-      total = product.price * Number(quantity);
-    } 
-    // Case 2: Buy from Cart
+      total += product.price * quantity;
+    }
+
+    // ✅ 2. SELECTED ITEMS
+    else if (items && items.length > 0) {
+      const productIds = items.map((i: any) => i.productId);
+
+      const products = await prisma.product.findMany({
+        where: { id: { in: productIds } },
+      });
+
+      for (const item of items) {
+        const product = products.find(p => p.id === item.productId);
+
+        if (!product) {
+          return res.status(404).json({ message: "Product not found" });
+        }
+
+        if (product.stock < item.quantity) {
+          return res.status(400).json({
+            message: `Not enough stock for ${product.name}`,
+          });
+        }
+
+        orderItems.push({
+          productId: product.id,
+          quantity: item.quantity,
+          price: product.price,
+        });
+
+        total += product.price * item.quantity;
+      }
+    }
+
+    // ✅ 3. FULL CART
     else {
       const cart = await prisma.cart.findUnique({
         where: { userId },
         include: {
-          items: {
-            include: { product: true },
-          },
+          items: { include: { product: true } },
         },
       });
 
@@ -85,18 +114,15 @@ const createOrder = async (req: Request, res: Response) => {
       }
     }
 
-    // Create Order with Transaction
+    // ✅ TRANSACTION
     const order = await prisma.$transaction(async (tx) => {
-      // Create the order
       const newOrder = await tx.order.create({
         data: {
           userId,
           addressId,
           total,
           status: "PENDING",
-          items: {
-            create: orderItems,
-          },
+          items: { create: orderItems },
         },
         include: {
           items: true,
@@ -104,30 +130,48 @@ const createOrder = async (req: Request, res: Response) => {
         },
       });
 
-      // If it was from cart → clear the cart items
-      if (!productId) {
+      // 🔥 Delete only selected items (or full cart)
+      if (items && items.length > 0) {
         await tx.cartItem.deleteMany({
-          where: { cartId: (await tx.cart.findUnique({ where: { userId } }))?.id },
+          where: {
+            productId: {
+              in: items.map((i: any) => i.productId),
+            },
+            cart: { userId },
+          },
         });
+      } else if (!productId) {
+        // full cart
+        const cart = await tx.cart.findUnique({ where: { userId } });
+        if (cart) {
+          await tx.cartItem.deleteMany({
+            where: { cartId: cart.id },
+          });
+        }
       }
 
-      // Decrease stock for all items in the order
+      // 🔥 Safe stock update
       for (const item of orderItems) {
-        await tx.product.update({
-          where: { id: item.productId },
+        const updated = await tx.product.updateMany({
+          where: {
+            id: item.productId,
+            stock: { gte: item.quantity },
+          },
           data: {
             stock: { decrement: item.quantity },
           },
         });
+
+        if (updated.count === 0) {
+          throw new Error("Stock update failed");
+        }
       }
 
       return newOrder;
     });
 
     return res.status(201).json({
-      message: productId 
-        ? "Order created successfully for Buy" 
-        : "Order created successfully from cart",
+      message: "Order created successfully",
       order,
     });
 

@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../config/prisma";
+import { addressSchema } from "../validations/addressValidator";
+import { ZodError } from "zod";
 
 
 const addAddress = async (req: Request, res: Response) => {
@@ -7,7 +9,8 @@ const addAddress = async (req: Request, res: Response) => {
         const user = (req as any).user;
         const userId = user.id;
 
-        const { street, city, state, zip, country } = req.body;
+        const parsedData = addressSchema.parse(req.body);
+        const { street, city, state, zip, country } = parsedData;
 
         const address = await prisma.address.create({
             data: {
@@ -25,8 +28,14 @@ const addAddress = async (req: Request, res: Response) => {
             address,
         });
 
-    } catch (error) {
-        console.error(error);
+    } catch (error: any) {
+        if (error instanceof ZodError) {
+            return res.status(400).json({
+                message: "Validation failed",
+                errors: error.issues,
+            });
+        }
+
         return res.status(500).json({
             message: "Something went wrong",
         });
@@ -72,7 +81,8 @@ const updateAddress = async (req: Request, res: Response) => {
             });
         }
 
-        const { street, city, state, zip, country } = req.body;
+        const parsedData = addressSchema.parse(req.body);
+        const { street, city, state, zip, country } = parsedData;
 
         const existingAddress = await prisma.address.findFirst({
             where: {
@@ -90,11 +100,11 @@ const updateAddress = async (req: Request, res: Response) => {
         const updatedAddress = await prisma.address.update({
             where: { id: addressId },
             data: {
-                street: street ?? existingAddress.street,
-                city: city ?? existingAddress.city,
-                state: state ?? existingAddress.state,
-                zip: zip ?? existingAddress.zip,
-                country: country ?? existingAddress.country,
+                street,
+                city,
+                state,
+                zip,
+                country,
             },
         });
 
@@ -103,8 +113,14 @@ const updateAddress = async (req: Request, res: Response) => {
             address: updatedAddress,
         });
 
-    } catch (error) {
-        console.error(error);
+    } catch (error: any) {
+        if (error instanceof ZodError) {
+            return res.status(400).json({
+                message: "Validation failed",
+                errors: error.issues,
+            });
+        }
+
         return res.status(500).json({
             message: "Something went wrong",
         });

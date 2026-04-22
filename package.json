@@ -7,7 +7,6 @@
     "dev": "nodemon src/index.ts",
     "create-admin": "ts-node src/script.ts"
   },
-  
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -23,6 +22,7 @@
     "multer-storage-cloudinary": "^4.0.0",
     "nodemailer": "^8.0.4",
     "prisma": "^6.19.2",
+    "readline-sync": "^1.4.10",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -33,6 +33,7 @@
     "@types/multer": "^2.1.0",
     "@types/node": "^25.5.0",
     "@types/nodemailer": "^8.0.0",
+    "@types/readline-sync": "^1.4.8",
     "nodemon": "^3.1.14",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.2"

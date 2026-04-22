@@ -190,9 +190,94 @@ const deleteProduct = async (req: Request, res: Response) => {
   }
 };
 
+const getAllProducts = async (req: Request, res: Response) => {
+  try {
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
+
+    const skip = (page - 1) * limit;
+
+    const products = await prisma.product.findMany({
+      skip,
+      take: limit,
+      include: {
+        category: true,
+        admin: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    const totalProducts = await prisma.product.count();
+
+    return res.status(200).json({
+      message: "Products fetched successfully",
+      products,
+      pagination: {
+        total: totalProducts,
+        page,
+        limit,
+        totalPages: Math.ceil(totalProducts / limit),
+      },
+    });
+
+  } catch (error: any) {
+    console.error("GET PRODUCTS ERROR:", error.message);
+
+    return res.status(500).json({
+      message: "Something is wrong",
+    });
+  }
+};
+
+
+const deleteProductImage = async (req: Request, res: Response) => {
+  try {
+    const imageId = Number(req.params.id);
+
+    if (isNaN(imageId)) {
+      return res.status(400).json({ message: "Invalid image ID" });
+    }
+
+    // 1. Find image
+    const image = await prisma.productImage.findUnique({
+      where: { id: imageId },
+    });
+
+    if (!image) {
+      return res.status(404).json({ message: "Image not found" });
+    }
+
+    // 2. Delete from Cloudinary
+    await cloudinary.uploader.destroy(image.publicId);
+
+    // 3. Delete from DB
+    await prisma.productImage.delete({
+      where: { id: imageId },
+    });
+
+    return res.json({
+      message: "Image deleted successfully",
+    });
+
+  } catch (error: any) {
+    console.error("DELETE IMAGE ERROR:", error.message);
+
+    return res.status(500).json({
+      message: "Something went wrong",
+    });
+  }
+};
+
 
 export default {
   createProduct,
   updateProduct,
-  deleteProduct
+  deleteProduct,
+  getAllProducts,
+  deleteProductImage
 }

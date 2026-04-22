@@ -36,10 +36,10 @@ app.use("/api/admin", adminRoutes);
 
 app.use((err: any, req: any, res: any, next: any) => {
   console.error(" GLOBAL ERROR:", err);
-
   res.status(500).json({
     message: err.message || "Internal server error",
   });
+
 });
 
 app.get("/", (req, res) => {

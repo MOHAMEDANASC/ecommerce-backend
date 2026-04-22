@@ -8,7 +8,10 @@ const router = Router();
 
 
 router.post("/",adminAuthMiddleware,allowRoles("SUPER_ADMIN", "ADMIN"),upload.array("images", 5),productadminController.createProduct);
-router.put("/:id",adminAuthMiddleware,allowRoles("SUPER_ADMIN", "ADMIN"),upload.array("images", 5),productadminController.updateProduct);
+router.patch("/:id",adminAuthMiddleware,allowRoles("SUPER_ADMIN", "ADMIN"),upload.array("images", 5),productadminController.updateProduct);
 router.delete("/:id",adminAuthMiddleware,allowRoles("SUPER_ADMIN"),productadminController.deleteProduct);
+router.get("/all-product", adminAuthMiddleware,allowRoles("SUPER_ADMIN", "ADMIN","MANEGER"),productadminController.getAllProducts)
+router.delete("/image/:id",adminAuthMiddleware,allowRoles("SUPER_ADMIN", "ADMIN"),productadminController.deleteProductImage);
+
 
 export default router;
